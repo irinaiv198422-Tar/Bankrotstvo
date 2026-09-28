@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -7,77 +8,196 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg: var(--tg-theme-bg-color, #f4f4f7);
-      --text: var(--tg-theme-text-color, #1a1a1a);
+      --bg: var(--tg-theme-bg-color, #f4f5f9);
       --card-bg: var(--tg-theme-secondary-bg-color, #ffffff);
-      --btn: var(--tg-theme-button-color, #2481cc);
+      --text: var(--tg-theme-text-color, #1e293b);
+      --hint: var(--tg-theme-hint-color, #64748b);
+      --btn: var(--tg-theme-button-color, #2563eb);
       --btn-text: var(--tg-theme-button-text-color, #ffffff);
-      --hint: var(--tg-theme-hint-color, #8e8e93);
     }
+    * { box-sizing: border-box; }
     body {
-      margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg); color: var(--text);
     }
     .card {
-      background: var(--card-bg); border-radius: 14px; padding: 16px; margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      background: var(--card-bg); border-radius: 16px; padding: 18px; margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     }
     .badge {
-      display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;
-      background: #e1f5fe; color: #0288d1;
+      display: inline-block; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      background: #eff6ff; color: #1d4ed8; text-transform: uppercase;
     }
-    .title { font-size: 18px; font-weight: 700; margin: 4px 0 12px 0; }
+    .title { font-size: 18px; font-weight: 800; margin: 8px 0 14px 0; }
+    .input-field {
+      width: 100%; padding: 14px; border: 1.5px solid #cbd5e1; border-radius: 12px;
+      font-size: 16px; outline: none; margin-bottom: 12px; background: #ffffff; color: #1e293b;
+    }
+    .input-field:focus { border-color: var(--btn); }
     .btn {
-      width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+      width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
       background: var(--btn); color: var(--btn-text); cursor: pointer; text-align: center;
     }
+    .btn:active { opacity: 0.85; }
     .btn-outline {
-      background: transparent; border: 1px solid var(--btn); color: var(--btn); margin-top: 8px;
+      background: transparent; border: 1.5px solid var(--btn); color: var(--btn); margin-top: 10px;
     }
+    .row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+    .row span:first-child { color: var(--hint); }
+    .hidden { display: none; }
+    .logout-btn {
+      font-size: 12px; color: var(--hint); text-align: center; margin-top: 20px; cursor: pointer; text-decoration: underline;
+    }
+    .error-msg { color: #dc2626; font-size: 13px; margin-bottom: 10px; text-align: center; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <span class="badge" id="case-status">Реализация имущества</span>
-    <div class="title" id="case-number">Дело № А40-184920/26</div>
-    <p style="color: var(--hint); margin: 0 0 8px 0; font-size: 13px;">Арбитражный суд г. Москвы</p>
-    <div style="font-size: 14px; margin-top: 8px;">
-      ⚖️ <b>Заседание:</b> <span id="court-date">18 ноября 2026</span><br>
-      👤 <b>Юрист:</b> Смирнова Елена (@smirnova_law)
+
+  <!-- ЭКРАН АВТОРИЗАЦИИ ПО ТЕЛЕФОНУ -->
+  <div id="auth-screen">
+    <div class="card" style="text-align: center; padding: 24px 16px;">
+      <div style="font-size: 40px; margin-bottom: 10px;">⚖️</div>
+      <div class="title" style="margin-bottom: 8px;">Личный кабинет должника</div>
+      <p style="color: var(--hint); font-size: 14px; margin-bottom: 20px;">
+        Введите номер телефона для входа в кабинет
+      </p>
+      
+      <input type="tel" id="phone-input" class="input-field" placeholder="+7 (999) 000-00-00" />
+      <div id="auth-error" class="error-msg hidden">Номер не найден в базе. Обратитесь к вашему юристу.</div>
+      <button class="btn" id="login-btn" onclick="handleLogin()">Войти в кабинет</button>
     </div>
   </div>
 
-  <div class="card">
-    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px;">
-      <span>Рассрочка по договору:</span>
-      <b id="payment-status">100 000 / 140 000 ₽</b>
+  <!-- ЭКРАН КАБИНЕТА КЛИЕНТА -->
+  <div id="dashboard-screen" class="hidden">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span class="badge" id="client-status">В процессе</span>
+        <span style="font-size: 13px; color: var(--hint);" id="client-name">Клиент</span>
+      </div>
+      <div class="title" id="client-case-num">Дело № ...</div>
+      <div class="row">
+        <span>Суд:</span>
+        <b id="client-court">Арбитражный суд</b>
+      </div>
+      <div class="row">
+        <span>Следующее заседание:</span>
+        <b id="client-hearing" style="color: #2563eb;">Уточняется</b>
+      </div>
+      <div class="row">
+        <span>Ответственный юрист:</span>
+        <b id="client-lawyer">Ирина</b>
+      </div>
     </div>
-    <button class="btn" onclick="openPayment()">Оплатить взнос (10 000 ₽) по СБП</button>
-  </div>
 
-  <div class="card">
-    <div class="title" style="font-size: 16px;">Дополнительные услуги</div>
-    <div style="font-size: 14px; margin-bottom: 10px;">
-      🧹 <b>Чистка кредитной истории</b> — 8 500 ₽<br>
-      <span style="color: var(--hint); font-size: 12px;">Исправление данных в НБКИ, ОКБ и Скоринг Бюро</span>
+    <div class="card">
+      <div class="title" style="font-size: 16px;">Оплата по договору</div>
+      <div class="row">
+        <span>Остаток к оплате:</span>
+        <b id="client-debt" style="font-size: 16px; color: #16a34a;">0 ₽</b>
+      </div>
+      <button class="btn" onclick="payViaSBP()">Оплатить взнос по СБП</button>
     </div>
-    <button class="btn btn-outline" onclick="orderService('Чистка КИ')">Заказать аудит КИ</button>
+
+    <div class="card">
+      <div class="title" style="font-size: 16px;">Дополнительные услуги</div>
+      <div style="font-size: 14px; margin-bottom: 8px;">
+        <b>🧹 Чистка кредитной истории после суда</b><br>
+        <span style="color: var(--hint); font-size: 12px;">Исправление записей в БКИ (НБКИ, ОКБ)</span>
+      </div>
+      <button class="btn btn-outline" onclick="orderService('Чистка КИ')">Заказать (8 500 ₽)</button>
+    </div>
+
+    <div class="logout-btn" onclick="logout()">Сменить номер телефона (Выйти)</div>
   </div>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand(); // Разворачиваем на весь экран
-
-    function openPayment() {
-      tg.HapticFeedback.impactOccurred('medium');
-      // Ссылка на платежный шлюз СБП (ЮKassa / Т-Банк)
-      tg.openLink('https://qr.nspk.ru/EXAMPLE_PAYMENT_URL');
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
     }
 
-    function orderService(serviceName) {
-      tg.HapticFeedback.notificationOccurred('success');
-      tg.sendData(JSON.stringify({ action: 'order_service', service: serviceName }));
-      tg.close();
+    // ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ НА СКРИПТ:
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLFunBnAKwTtxjNfsXjpbK_vwvnQd_Z0excifE-nt69JEVM3KbSvQ0ecGZEuz1qWsZ7Q/exec';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedPhone = localStorage.getItem('client_phone');
+      if (savedPhone) {
+        fetchClientData(savedPhone);
+      }
+    });
+
+    async function handleLogin() {
+      const phoneInput = document.getElementById('phone-input').value.trim();
+      const clean = phoneInput.replace(/\D/g, '');
+      const errorEl = document.getElementById('auth-error');
+      const btn = document.getElementById('login-btn');
+
+      if (clean.length < 10) {
+        errorEl.innerText = 'Введите корректный номер телефона';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      errorEl.classList.add('hidden');
+      btn.innerText = 'Проверка...';
+      btn.disabled = true;
+
+      await fetchClientData(clean);
+
+      btn.innerText = 'Войти в кабинет';
+      btn.disabled = false;
+    }
+
+    async function fetchClientData(phone) {
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?phone=${encodeURIComponent(phone)}`);
+        const result = await response.json();
+
+        if (result.found) {
+          localStorage.setItem('client_phone', phone);
+          renderDashboard(result);
+        } else {
+          document.getElementById('auth-error').classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Ошибка при подключении к базе. Проверьте ссылку скрипта.');
+      }
+    }
+
+    function renderDashboard(data) {
+      document.getElementById('client-name').innerText = data.name;
+      document.getElementById('client-status').innerText = data.status;
+      document.getElementById('client-case-num').innerText = data.caseNum;
+      document.getElementById('client-court').innerText = data.court;
+      document.getElementById('client-hearing').innerText = data.hearing;
+      document.getElementById('client-lawyer').innerText = data.lawyer;
+      document.getElementById('client-debt').innerText = data.debt;
+
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('dashboard-screen').classList.remove('hidden');
+    }
+
+    function payViaSBP() {
+      if (tg) tg.HapticFeedback?.impactOccurred('medium');
+      alert('Переход к оплате через СБП...');
+    }
+
+    function orderService(name) {
+      if (tg) {
+        tg.HapticFeedback?.notificationOccurred('success');
+        tg.sendData(JSON.stringify({ action: 'order', service: name }));
+      }
+      alert(`Заявка на услугу "${name}" принята! Юрист свяжется с вами.`);
+    }
+
+    function logout() {
+      localStorage.removeItem('client_phone');
+      document.getElementById('dashboard-screen').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+      document.getElementById('phone-input').value = '';
     }
   </script>
 </body>
