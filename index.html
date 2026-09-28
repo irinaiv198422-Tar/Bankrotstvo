@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -53,7 +52,7 @@
 </head>
 <body>
 
-  <!-- ЭКРАН АВТОРИЗАЦИИ ПО ТЕЛЕФОНУ -->
+  <!-- ЭКРАН 1: ВХОД -->
   <div id="auth-screen">
     <div class="card" style="text-align: center; padding: 24px 16px;">
       <div style="font-size: 40px; margin-bottom: 10px;">⚖️</div>
@@ -68,7 +67,7 @@
     </div>
   </div>
 
-  <!-- ЭКРАН КАБИНЕТА КЛИЕНТА -->
+  <!-- ЭКРАН 2: КАБИНЕТ -->
   <div id="dashboard-screen" class="hidden">
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -118,7 +117,7 @@
       tg.expand();
     }
 
-    // ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ НА СКРИПТ:
+    // ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ ИЗ ШАГА 1 (ЗАКАНЧИВАЕТСЯ НА /exec):
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLFunBnAKwTtxjNfsXjpbK_vwvnQd_Z0excifE-nt69JEVM3KbSvQ0ecGZEuz1qWsZ7Q/exec';
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -144,27 +143,40 @@
       btn.innerText = 'Проверка...';
       btn.disabled = true;
 
-      await fetchClientData(clean);
-
-      btn.innerText = 'Войти в кабинет';
-      btn.disabled = false;
+      fetchClientData(clean);
     }
 
-    async function fetchClientData(phone) {
-      try {
-        const response = await fetch(`${GOOGLE_SCRIPT_URL}?phone=${encodeURIComponent(phone)}`);
-        const result = await response.json();
+    // Запрос через JSONP (гарантированно работает внутри Telegram)
+    function fetchClientData(phone) {
+      const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+      
+      const timeout = setTimeout(() => {
+        const btn = document.getElementById('login-btn');
+        if (btn) { btn.innerText = 'Войти в кабинет'; btn.disabled = false; }
+        alert('Превышено время ожидания ответа от таблицы. Проверьте интернет.');
+      }, 10000);
 
-        if (result.found) {
+      window[callbackName] = function(result) {
+        clearTimeout(timeout);
+        delete window[callbackName];
+        const scriptEl = document.getElementById(callbackName);
+        if (scriptEl) scriptEl.remove();
+
+        const btn = document.getElementById('login-btn');
+        if (btn) { btn.innerText = 'Войти в кабинет'; btn.disabled = false; }
+
+        if (result && result.found) {
           localStorage.setItem('client_phone', phone);
           renderDashboard(result);
         } else {
           document.getElementById('auth-error').classList.remove('hidden');
         }
-      } catch (err) {
-        console.error(err);
-        alert('Ошибка при подключении к базе. Проверьте ссылку скрипта.');
-      }
+      };
+
+      const script = document.createElement('script');
+      script.id = callbackName;
+      script.src = `${GOOGLE_SCRIPT_URL}?phone=${encodeURIComponent(phone)}&callback=${callbackName}`;
+      document.body.appendChild(script);
     }
 
     function renderDashboard(data) {
